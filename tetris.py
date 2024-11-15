@@ -25,13 +25,14 @@ class Tetris:
         self.player_num = None  # 记录玩家数量，None表示未选择，1表示单人，2表示双人，3表示三人
         self.game_mode = None # 记录游戏模式
         
-        self.cell_red_image = self.loadimage("D:\\lusong\\cell_red.png")
-        self.cell_cyan_image = self.loadimage("D:\\lusong\\cell_cyan.png")
-        self.cell_yellow_image = self.loadimage("D:\\lusong\\cell_yellow.png")
-        self.cell_blue_image = self.loadimage("D:\\lusong\\cell_blue.png")
-        self.cell_purple_image = self.loadimage("D:\\lusong\\cell_purple.png")
-        self.cell_green_image = self.loadimage("D:\\lusong\\cell_green.png")
-        self.cell_orange_image = self.loadimage("D:\\lusong\\cell_orange.png")
+        current_directory = os.path.dirname(os.path.abspath(__file__))
+        self.cell_red_image = self.loadimage(current_directory+"\\cell_red.png")
+        self.cell_cyan_image = self.loadimage(current_directory+"\\cell_cyan.png")
+        self.cell_yellow_image = self.loadimage(current_directory+"\\cell_yellow.png")
+        self.cell_blue_image = self.loadimage(current_directory+"\\cell_blue.png")
+        self.cell_purple_image = self.loadimage(current_directory+"\\cell_purple.png")
+        self.cell_green_image = self.loadimage(current_directory+"\\cell_green.png")
+        self.cell_orange_image = self.loadimage(current_directory+"\\cell_orange.png")
         
         # --- 玩家1 ---
         self.canvas1 = tk.Canvas(root, width=self.width * self.cell_size, height=self.height * self.cell_size, bg="grey")
