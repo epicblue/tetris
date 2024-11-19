@@ -8,11 +8,14 @@ from datetime import datetime
 from PIL import Image, ImageTk
 import pygame
 import threading
+import queue
+import time
 
 class Tetris:
     def __init__(self, root):
         self.root = root
         self.root.title("俄罗斯方块")
+        self.event_queue = queue.Queue()
         self.width = 10
         self.height = 20
         self.cell_size = 30
@@ -74,6 +77,7 @@ class Tetris:
         self.controller_thread = threading.Thread(target=self.listen_controller, daemon=True)
         self.controller_thread.start()
 
+        self.root.after(100,self.process_event_queue)
         # 关闭窗口时停止线程和 Pygame
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -332,11 +336,12 @@ class Tetris:
         
         # 显示“开始游戏”按钮
         self.start_button.grid()
-
+        
     def listen_controller(self):
         """
         监听手柄事件并调用相应的游戏方法
         """
+        self.button_cooldown = 0
         while self.running:
             if self.controller:
                 pygame.event.pump()  # 处理内部事件
@@ -344,27 +349,37 @@ class Tetris:
                 for event in pygame.event.get():
                     if event.type == pygame.JOYBUTTONDOWN:
                         button = event.button
-                        self.handle_controller_button(button)
-                # 检测轴移动（例如D-pad）
-                axis_threshold = 0.5  # 阈值，避免误判
-                left_right = self.controller.get_axis(0)  # 通常为左摇杆的水平轴
-                up_down = self.controller.get_axis(1)  # 通常为左摇杆的垂直轴
-
-                # 移动左
-                if left_right < -axis_threshold:
-                    self.move_tetromino(-1, 0)
-                    self.update_canvas()
-                # 移动右
-                elif left_right > axis_threshold:
-                    self.move_tetromino(1, 0)
-                    self.update_canvas()
-                # 移动下
-                if up_down > axis_threshold:
-                    self.move_tetromino(0, 1)
-                    self.update_canvas()
+                        self.event_queue.put(('button',button))
+                    elif event.type == pygame.JOYAXISMOTION and self.button_cooldown < time.time():
+                        # 检测轴移动（例如D-pad）
+                        axis_threshold = 0.5  # 阈值，避免误判
+                        left_right = self.controller.get_axis(0)  # 通常为左摇杆的水平轴
+                        up_down = self.controller.get_axis(1)  # 通常为左摇杆的垂直轴
+                        # 移动左
+                        if left_right < -axis_threshold:
+                            self.event_queue.put(('move',-1,0))
+                        # 移动右
+                        elif left_right > axis_threshold:
+                            self.event_queue.put(('move',1,0))
+                        # 移动下
+                        if up_down > axis_threshold:
+                            self.event_queue.put(('move',0,1))
+                        self.button_cooldown = time.time() + 0.07
 
             pygame.time.wait(100)  # 小延时以减少CPU使用率
 
+    def process_event_queue(self):
+        while not self.event_queue.empty():
+            event = self.event_queue.get()
+            if event[0] == 'button':
+                _,button = event
+                self.handle_controller_button(button)
+            elif event[0] == 'move':
+                _,dx,dy = event
+                self.move_tetromino(dx,dy)
+                self.update_canvas()
+        self.root.after(100,self.process_event_queue)
+        
     def handle_controller_button(self, button):
         """
         根据按下的按钮执行对应的游戏操作。
@@ -384,20 +399,23 @@ class Tetris:
         # 根据手柄的按钮编号调整映射
         if button == 0:  # A按钮 - 立即下落
             self.drop_tetromino()
-            self.update_canvas()
         elif button == 1:  # B按钮 - 暂停
             self.paused = not self.paused  # 切换暂停状态
             if self.paused:
                 self.canvas.create_text(self.width * self.cell_size // 2, self.height * self.cell_size // 2,
                                         text="暂停", fill="green", font=("Arial", 24))
-            else:
-                self.update_canvas()  # 继续游戏时，更新画布清除
         elif button == 3:  # Y按钮 - 旋转
             self.rotate_tetromino()
-            self.update_canvas()
         elif button == 2:  # X按钮 - 切换阴影
             self.shadow_enabled = not self.shadow_enabled  # 切换阴影功能状态
-            self.update_canvas()
+        elif button == 4:  # 左Bumper
+            self.event_queue.put(('move',-1,0))
+        elif button == 5:  # 右Bumper
+            self.event_queue.put(('move',1,0))
+        else:
+            print(button)
+        self.update_canvas()
+        
 
     def on_close(self):
         """
